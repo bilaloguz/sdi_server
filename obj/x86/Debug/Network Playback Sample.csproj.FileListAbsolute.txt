@@ -1,0 +1,18 @@
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\bin\x86\Debug\Network Playback Sample.exe.config
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\bin\x86\Debug\Network Playback Sample.exe
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\bin\x86\Debug\Network Playback Sample.pdb
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\bin\x86\Debug\Interop.MPLATFORMLib.dll
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\obj\x86\Debug\Network Playback Sample.csprojAssemblyReference.cache
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\obj\x86\Debug\Interop.MPLATFORMLib.dll
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\obj\x86\Debug\Network Playback Sample.csproj.ResolveComReference.cache
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\obj\x86\Debug\NetworkPlaybackSample.Form1.resources
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\obj\x86\Debug\NetworkPlaybackSample.Properties.Resources.resources
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\obj\x86\Debug\Network Playback Sample.csproj.GenerateResource.cache
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\obj\x86\Debug\Network Playback Sample.csproj.CoreCompileInputs.cache
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\obj\x86\Debug\Network Playback Sample.exe
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\obj\x86\Debug\Network Playback Sample.pdb
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\bin\x86\Debug\Newtonsoft.Json.dll
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\bin\x86\Debug\System.Net.Http.Formatting.dll
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\bin\x86\Debug\Newtonsoft.Json.xml
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\bin\x86\Debug\System.Net.Http.Formatting.xml
+C:\Program Files (x86)\Medialooks\MPlatform SDK\Samples Basic\C#\Network Playback Sample\obj\x86\Debug\Network Playback Sample.csproj.CopyComplete
