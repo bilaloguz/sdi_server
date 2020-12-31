@@ -1,22 +1,13 @@
+﻿using MPLATFORMLib;
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
+using System.Configuration;
 using System.Drawing;
-using System.Globalization;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Windows.Forms;
-using System.Net.Http;
-using System.Threading.Tasks;
-using System.Threading;
-using System.Timers;
-using System.Web.Http;
-using System.Net;
-using System.Text.RegularExpressions;
 using System.IO;
-using MPLATFORMLib;
+using System.Net.Http;
+using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 namespace NetworkPlaybackSample
 {
     public partial class Form1 : Form
@@ -32,14 +23,10 @@ namespace NetworkPlaybackSample
         private int startVideoFormat;
         private int startAudioFormat;
         private double[] m_arrBufferMinMax = new double[2];
-        private void Form1_Load(object sender, EventArgs e)
+        private async void Form1_Load(object sender, EventArgs e)
         {
             try
             {
-                if (Properties.Settings.Default.UrlHistory != null)
-                {
-                    object[] strHistory = NetworkPlaybackSample.Properties.Settings.Default.UrlHistory.ToArray();
-                }
                 m_objFile = new MFileClass();
                 m_objFile.PreviewWindowSet("", panelPreview.Handle.ToInt32());
                 m_objFile.PreviewEnable("", 1, 1);
@@ -56,81 +43,172 @@ namespace NetworkPlaybackSample
                 MessageBox.Show(ex.ToString());
                 Application.Exit();
             }
-            string JSON = "{ \"Number of Input Ports\": \"1\", \"Device List\": [";
+
+            /* Config read */
+            textBox1.Text = ConfigurationManager.AppSettings.Get("applicationServer");
+            var firm = ConfigurationManager.AppSettings.Get("firm");
+            var customerID = ConfigurationManager.AppSettings.Get("customerID");
+            /* Config read */
+
+            /* Connect method */
+            var client = new HttpClient();
+            string serverIP = textBox1.Text;
+            timer1.Tick += new EventHandler(Timer1_Tick);
+            timer1.Start();
+            try
+            {
+                var response = client.GetAsync("https://" + serverIP + "/connect").Result;
+                if (response.StatusCode.ToString() == "OK")
+                {
+                    pictureBox1.BackColor = Color.Green;
+                    label2.Font = new Font("Arial", 7);
+                    label2.Text = "Connected!";
+                    label3.Text = "Last checked: " + DateTime.Now.ToString("yyyy/MM/dd hh:mm:ss");
+                }
+                else
+                {
+                    pictureBox1.BackColor = Color.Red;
+                    label2.Font = new Font("Arial", 7);
+                    label2.Text = "Disconnected!";
+                    label3.Text = "Last checked: " + DateTime.Now.ToString("yyyy/MM/dd hh:mm:ss");
+                }
+            }
+            catch
+            {
+                pictureBox1.BackColor = Color.Red;
+                label2.Font = new Font("Arial", 7);
+                label2.Text = "Disconnected!";
+                label3.Text = "Last checked: " + DateTime.Now.ToString("yyyy/MM/dd hh:mm:ss");
+            }
+            /* Connect method */
+
+            /* device_list method */
+            string JSON = "{ \"customerID\":\"" + customerID + "\", \"firm\":\"" + firm + "\", \"Device List\": [";
             for (int i = 0; i < comboBoxRenderer.Items.Count; i++)
             {
-                if (i != comboBoxRenderer.Items.Count - 1) {
+                if (i != comboBoxRenderer.Items.Count - 1)
+                {
                     JSON += "\"" + comboBoxRenderer.Items[i] + "\",";
                 }
-                else {
+                else
+                {
                     JSON += "\"" + comboBoxRenderer.Items[i] + "\"]}";
                 }
             }
-            var client = new HttpClient();
-            string serverIP = textBox1.Text;
-            string serverPort = textBox2.Text;
             var stringContent = new StringContent(JSON);
-            client.PostAsync("http://" + serverIP + ":" + serverPort + "/device_list", stringContent);
-            var data = GetIP(serverIP, serverPort).Result;
-            var sdpContent = GetSDP(serverIP, serverPort).Result;
-            string sdp = sdpContent.Replace("\\n", Environment.NewLine);
-            sdp = sdp.Replace("\"", "");
-            string[] lines = Regex.Split(sdp, "\r\n|\r|\n");
-            string result = "";
-            foreach(string line in lines)
-            {
-                result += line.Trim() + Environment.NewLine;
-            }
-            if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\stream.sdp"))
-            {
-                File.Delete(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\stream.sdp");
-            }
-            System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\stream.sdp", result);
             try
             {
-                string filePath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\stream.sdp";
-                m_objFile.FileNameSet(filePath, "");
-                m_objFile.FilePlayStart();
-                m_arrBufferMinMax[0] = GetDblProps(m_objFile, "file::network.buffer_min");
-                m_arrBufferMinMax[1] = GetDblProps(m_objFile, "file::network.buffer_max");
-                timerStat.Enabled = true;
+                var response = client.PostAsync("https://" + serverIP + "/device_list", stringContent).Result;
+                if (response.StatusCode.ToString() == "OK")
+                {}
+                else
+                {
+                    MessageBox.Show("Device list can not be sent to application server.");
+                }
             }
-            catch (System.Exception ex)
+            catch
             {
-                MessageBox.Show(ex.ToString());
+                MessageBox.Show("Device list can not be sent to application server.");
             }
-            if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\settings.json")) {
-                string numberPorts = System.IO.File.ReadAllText(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\settings.json");
-                textBox3.Text = numberPorts;
+            /* device_list method */
+
+            string sdp = "";
+            string portName = "";
+            var jsonContent = GetJSON(serverIP).Result;
+            if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\streams.json"))
+            {
+                File.Delete(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\streams.json");
+            }
+            System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\streams.json", jsonContent);
+            Newtonsoft.Json.Linq.JArray json = Newtonsoft.Json.Linq.JArray.Parse(jsonContent);
+            foreach (Newtonsoft.Json.Linq.JObject o in json.Children<Newtonsoft.Json.Linq.JObject>())
+            {
+                foreach (Newtonsoft.Json.Linq.JProperty p in o.Properties())
+                {
+                    if (p.Name == "name")
+                    {
+                        portName = p.Value.ToString();
+                    }
+                    if (p.Name == "sdp")
+                    {
+                        sdp = p.Value.ToString();
+                    }
+                }
+                sdp = sdp.Replace("\\n", Environment.NewLine);
+                sdp = sdp.Replace("\"", "");
+                string[] lines = Regex.Split(sdp, "\r\n|\r|\n");
+                string result = "";
+                foreach (string line in lines)
+                {
+                    result += line.Trim() + Environment.NewLine;
+                }
+                if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + portName + ".sdp"))
+                {
+                    File.Delete(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + portName + ".sdp");
+                }
+                System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + portName + ".sdp", result);
+            }
+            timer2.Tick += new EventHandler(Timer2_Tick);
+            timer2.Start();
+            if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + comboBoxRenderer.SelectedItem.ToString() + ".sdp"))
+            {
+                //sdpFile = System.IO.File.ReadAllText(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + comboBoxRenderer.SelectedItem.ToString() + ".sdp");
+                var sdpFile = "";
+                var fs = new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + comboBoxRenderer.SelectedItem.ToString() + ".sdp", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
+                using (var sr = new StreamReader(fs))
+                {
+                    sdpFile = sr.ReadToEnd();
+                    sr.Close();
+                }
+                fs.Dispose();
+                sdpFile = sdpFile.Trim();
+                if (!String.Equals(sdpFile, "Vacant"))
+                {
+                    if (!String.Equals(sdpFile, "Not assigned"))
+                    {
+                        m_objFile.FileNameSet(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + comboBoxRenderer.SelectedItem.ToString() + ".sdp", "");
+                        m_objFile.PreviewWindowSet("", panelPreview.Handle.ToInt32());
+                        m_objFile.PreviewEnable("", 1, 1);
+                        try
+                        {
+                            m_objFile.FilePlayStart();
+                        }
+                        catch
+                        {
+                            panelPreview.BackgroundImage = Image.FromFile(Application.StartupPath + "\\nostream.png");
+                        }
+                        m_objRenderer.ObjectStart(m_objFile);
+                    }
+                    else
+                    {
+                        m_objFile.ObjectClose();
+                        m_objRenderer.ObjectClose();
+                        panelPreview.BackgroundImage = Image.FromFile(Application.StartupPath + "\\nostream.png");
+                    }
+                }
+                else
+                {
+                    m_objFile.ObjectClose();
+                    m_objRenderer.ObjectClose();
+                    panelPreview.BackgroundImage = Image.FromFile(Application.StartupPath + "\\nostream.png");
+                }
             }
         }
         private void Form1_FormClosed(object sender, FormClosedEventArgs e)
         {
             if (m_objFile != null)
+            {
                 m_objFile.ObjectClose();
+            }
             if (m_objRenderer != null)
+            {
                 m_objRenderer.ObjectClose();
-            if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\settings.json"))
-            {
-                File.Delete(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\settings.json");
             }
-            System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\settings.json", textBox3.Text);
-        }
-        private void buttonPlay_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                string filePath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\this.sdp";
-                m_objFile.FileNameSet(filePath, "");
-                m_objFile.FilePlayStart();
-                m_arrBufferMinMax[0] = GetDblProps(m_objFile, "file::network.buffer_min");
-                m_arrBufferMinMax[1] = GetDblProps(m_objFile, "file::network.buffer_max");
-                timerStat.Enabled = true;
-            }
-            catch (System.Exception ex)
-            {
-                MessageBox.Show(ex.ToString());
-            }
+            Configuration configManager = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+            KeyValueConfigurationCollection confCollection = configManager.AppSettings.Settings;
+            confCollection["applicationServer"].Value = textBox1.Text;
+            configManager.Save(ConfigurationSaveMode.Modified);
+            ConfigurationManager.RefreshSection(configManager.AppSettings.SectionInformation.Name);
         }
         private void panel1_SizeChanged(object sender, EventArgs e)
         {
@@ -185,7 +263,6 @@ namespace NetworkPlaybackSample
                     m_objFile.FormatAudioGetByIndex(eMFormatType.eMFT_Convert, i, out audProps, out strFormat);
                     if (audProps.nBitsPerSample == 16 && audProps.nChannels == 16 && audProps.nSamplesPerSec == 48000) startAudioFormat = i;
                     comboBoxAF.Items.Add(strFormat);
-
                 }
                 m_objFile.FormatAudioGet(eMFormatType.eMFT_Convert, out audProps, out nIndex, out strFormat);
                 if (nIndex > 0)
@@ -193,7 +270,7 @@ namespace NetworkPlaybackSample
                 else comboBoxAF.SelectedIndex = 0;
             }
         }
-        void FillRenderers()
+        private void FillRenderers()
         {
             int nDevices = 0;
             m_objRenderer.DeviceGetCount(0, "renderer", out nDevices);
@@ -206,7 +283,10 @@ namespace NetworkPlaybackSample
                     string strName;
                     string strXML;
                     m_objRenderer.DeviceGetByIndex(0, "renderer", i, out strName, out strXML);
-                    comboBoxRenderer.Items.Add(strName);
+                    if (strName != "WebRTC")
+                    {
+                        comboBoxRenderer.Items.Add(strName);
+                    }
                 }
                 comboBoxRenderer.SelectedIndex = 0;
             }
@@ -264,7 +344,7 @@ namespace NetworkPlaybackSample
         {
             UpdatePos();
         }
-        void UpdateDelay()
+        private void UpdateDelay()
         {
             try
             {
@@ -278,7 +358,7 @@ namespace NetworkPlaybackSample
             }
             catch (System.Exception) { }
         }
-        void UpdatePos()
+        private void UpdatePos()
         {
             try
             {
@@ -289,13 +369,13 @@ namespace NetworkPlaybackSample
             }
             catch (System.Exception) { }
         }
-        double GetDblProps(object _pObject, string strName)
+        private double GetDblProps(object _pObject, string strName)
         {
             string strValue = "";
             ((IMProps)_pObject).PropsGet(strName, out strValue);
             return Double.Parse(strValue, System.Globalization.CultureInfo.InvariantCulture);
         }
-        private void timerStat_Tick(object sender, EventArgs e)
+        private void TimerStat_Tick(object sender, EventArgs e)
         {
             try
             {
@@ -306,33 +386,45 @@ namespace NetworkPlaybackSample
         }
         private void comboBoxRenderer_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (checkBoxOutput.Checked)
+            if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + comboBoxRenderer.SelectedItem.ToString() + ".sdp"))
             {
+                m_objFile.ObjectClose();
                 m_objRenderer.ObjectClose();
-                m_objRenderer.DeviceSet("renderer", comboBoxRenderer.SelectedItem.ToString(), "");
-                m_objRenderer.ObjectStart(m_objFile);
+                var sdpFile = "";
+                var fs = new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + comboBoxRenderer.SelectedItem.ToString() + ".sdp", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
+                using (var sr = new StreamReader(fs))
+                {
+                    sdpFile = sr.ReadToEnd();
+                    sr.Close();
+                }
+                fs.Dispose();
+                sdpFile = sdpFile.Trim();
+                if (!String.Equals(sdpFile, "Vacant"))
+                {
+                    if (!String.Equals(sdpFile, "Not assigned"))
+                    {
+                        m_objFile.FileNameSet(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + comboBoxRenderer.SelectedItem.ToString() + ".sdp", "");
+                        m_objFile.PreviewWindowSet("", panelPreview.Handle.ToInt32());
+                        m_objFile.PreviewEnable("", 1, 1);
+                        try
+                        {
+                            m_objFile.FilePlayStart();
+                        }
+                        catch
+                        {
+                            panelPreview.BackgroundImage = Image.FromFile(Application.StartupPath + "\\nostream.png");
+                        }
+                        m_objRenderer.ObjectStart(m_objFile);
+                    }
+                }
             }
         }
-        public async Task<bool> CheckStatus(string serverIP, string serverPort)
+        public async Task<string> GetJSON(string serverIP)
         {
             var client = new HttpClient();
-            var result = await client.GetAsync("http://" + serverIP + ":" + serverPort + "/connect");
-            if (result.StatusCode.ToString() == "OK")
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-        public async Task<string> GetSDP(string serverIP, string serverPort)
-        {
-            var client = new HttpClient();
-            var ip = GetIP(serverIP, serverPort).Result;
             try
             {
-                var result = client.GetStringAsync("http://" + serverIP + ":" + serverPort + "/get_sdp/" + ip).Result;
+                var result = client.GetStringAsync("https://" + serverIP + "/getJson").Result;
                 return await Task.FromResult(result);
             }
             catch
@@ -340,42 +432,142 @@ namespace NetworkPlaybackSample
                 return "False";
             }
         }
-        private async Task<string> GetIP(string serverIP, string serverPort) {
-            var client = new HttpClient();
-            try
+        public void SaveJSON()
+        {
+            string sdp = "";
+            string portName = "";
+            string serverIP = textBox1.Text;
+            var jsonContent = GetJSON(serverIP).Result;
+            if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\streams.json"))
             {
-                var response = client.GetStringAsync("http://" + serverIP + ":" + serverPort + "/connect").Result;
-                return await Task.FromResult(response);
+                System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\streams.json", String.Empty);
+                //File.Delete(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\streams.json");
             }
-            catch
+            System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\streams.json", jsonContent);
+            Newtonsoft.Json.Linq.JArray json = Newtonsoft.Json.Linq.JArray.Parse(jsonContent);
+            foreach (Newtonsoft.Json.Linq.JObject o in json.Children<Newtonsoft.Json.Linq.JObject>())
             {
-                return null;
+                foreach (Newtonsoft.Json.Linq.JProperty p in o.Properties())
+                {
+                    if (p.Name == "name")
+                    {
+                        portName = p.Value.ToString();
+                    }
+                    if (p.Name == "sdp")
+                    {
+                        sdp = p.Value.ToString();
+                    }
+                }
+                sdp = sdp.Replace("\\n", Environment.NewLine);
+                sdp = sdp.Replace("\"", "");
+                string[] lines = Regex.Split(sdp, "\r\n|\r|\n");
+                string result = "";
+                foreach (string line in lines)
+                {
+                    result += line.Trim() + Environment.NewLine;
+                }
+                if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + portName + ".sdp"))
+                {
+                    System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + portName + ".sdp", string.Empty);
+                    //File.Delete(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + portName + ".sdp");
+                }
+                System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + portName + ".sdp", result);
             }
         }
-        private void timer1_Tick(object sender, EventArgs e)
+        private void Timer1_Tick(object sender, EventArgs e)
         {
             string serverIP = textBox1.Text;
-            string serverPort = textBox2.Text;
             var client = new HttpClient();
             try
             {
-                var response = client.GetAsync("http://" + serverIP + ":" + serverPort + "/connect").Result;
+                var response = client.GetAsync("https://" + serverIP + "/connect").Result;
                 if (response.StatusCode.ToString() == "OK")
                 {
                     pictureBox1.BackColor = Color.Green;
+                    label2.Font = new Font("Arial", 7);
                     label2.Text = "Connected!";
+                    label3.Font = new Font("Arial", 7);
+                    label3.Text = "Last checked: " + DateTime.Now.ToString("yyyy/MM/dd hh:mm:ss");
                 }
-            } 
+                else
+                {
+                    pictureBox1.BackColor = Color.Red;
+                    label2.Font = new Font("Arial", 7);
+                    label2.Text = "Disconnected!";
+                    label3.Font = new Font("Arial", 7);
+                    label3.Text = "Last checked: " + DateTime.Now.ToString("yyyy/MM/dd hh:mm:ss");
+                }
+            }
             catch
             {
                 pictureBox1.BackColor = Color.Red;
-                label2.Text = "Disconnected";
+                label2.Font = new Font("Arial", 7);
+                label2.Text = "Disconnected!";
+                label3.Font = new Font("Arial", 7);
+                label3.Text = "Last checked: " + DateTime.Now.ToString("yyyy/MM/dd hh:mm:ss");
             }
         }
-        private void button1_Click(object sender, EventArgs e)
+        private void Timer2_Tick(object sender, EventArgs e)
         {
-            timer1.Tick += new EventHandler(timer1_Tick);
-            timer1.Start();
+            //SaveJSON();
+            string serverIP = textBox1.Text;
+            var jsonContentNew = GetJSON(serverIP).Result;
+            var jsonContentOld = "";
+            var sdpFile = "";
+            //var jsonContentOld = System.IO.File.ReadAllText(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\streams.json");
+            var fs = new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\streams.json", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite|FileShare.Delete);
+            using (var sr = new StreamReader(fs))
+            {
+                jsonContentOld = sr.ReadToEnd();
+                sr.Close();
+            }
+            fs.Dispose();
+            if (!String.Equals(jsonContentOld, jsonContentNew))
+            {
+                SaveJSON();
+                if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + comboBoxRenderer.SelectedItem.ToString() + ".sdp"))
+                {
+                    //sdpFile = System.IO.File.ReadAllText(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + comboBoxRenderer.SelectedItem.ToString() + ".sdp");
+                    fs = new FileStream(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + comboBoxRenderer.SelectedItem.ToString() + ".sdp", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
+                    using (var sr = new StreamReader(fs))
+                    {
+                        sdpFile = sr.ReadToEnd();
+                        sr.Close();
+                    }
+                    fs.Dispose();
+                    sdpFile = sdpFile.Trim();
+                    if (!String.Equals(sdpFile, "Vacant"))
+                    {
+                        if (!String.Equals(sdpFile, "Not assigned"))
+                        {
+                            m_objFile.FileNameSet(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\" + comboBoxRenderer.SelectedItem.ToString() + ".sdp", "");
+                            m_objFile.PreviewWindowSet("", panelPreview.Handle.ToInt32());
+                            m_objFile.PreviewEnable("", 1, 1);
+                            try
+                            {
+                                m_objFile.FilePlayStart();
+                            }
+                            catch
+                            {
+                                panelPreview.BackgroundImage = Image.FromFile(Application.StartupPath + "\\nostream.png");
+                            }
+                            m_objRenderer.ObjectStart(m_objFile);
+                        }
+                        else
+                        {
+                            m_objFile.ObjectClose();
+                            m_objRenderer.ObjectClose();
+                            panelPreview.BackgroundImage = Image.FromFile(Application.StartupPath + "\\nostream.png");
+                        }
+                    }
+                    else
+                    {
+                        m_objFile.ObjectClose();
+                        m_objRenderer.ObjectClose();
+                        panelPreview.BackgroundImage = Image.FromFile(Application.StartupPath + "\\nostream.png");
+                    }
+                }
+            }
         }
     }
 }

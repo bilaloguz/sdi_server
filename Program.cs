@@ -1,5 +1,5 @@
+using Libero.Register.Medialooks;
 using System;
-using System.Collections.Generic;
 using System.Windows.Forms;
 
 namespace NetworkPlaybackSample
@@ -12,6 +12,7 @@ namespace NetworkPlaybackSample
         [STAThread]
         static void Main()
         {
+            Register register = new Register();
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Form1());
